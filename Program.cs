@@ -8,11 +8,18 @@ using MQTTnet.Client.Internal;
 using MQTTnet.Packets;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Net.NetworkInformation;
+using System.Reflection.Metadata;
 
 namespace MQTT_test
 {
     internal class Program
     {
+        private const String MQTT_SERVER = "localhost";
+        private const int MQTT_PORT = 1883;
+        private const String TEST_TOPIC = "test/topic";
+        private const String TEST_PAYLOAD = "Just Testing...";
+        
         static void Main(string[] args)
         {
             Program program = new Program();
@@ -28,7 +35,7 @@ namespace MQTT_test
             using IMqttClient mqttClient = mqttFactory.CreateMqttClient();
 
             MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
-                .WithTcpServer("localhost")
+                .WithTcpServer(MQTT_SERVER, MQTT_PORT)
                 .WithProtocolVersion(MqttProtocolVersion.V500)
                 .Build();
 
@@ -44,15 +51,15 @@ namespace MQTT_test
             using (IMqttClient mqttClient = mqttFactory.CreateMqttClient())
             {
                 MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
-                    .WithTcpServer("localhost")
+                    .WithTcpServer(MQTT_SERVER, MQTT_PORT)
                     .WithProtocolVersion(MqttProtocolVersion.V500)
                     .Build();
 
                 await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
 
                 MqttApplicationMessage applicationMessage = new MqttApplicationMessageBuilder()
-                    .WithTopic("samples/temperature/living_room")
-                    .WithPayload("19.5")
+                    .WithTopic(TEST_TOPIC)
+                    .WithPayload(TEST_PAYLOAD)
                     .Build();
 
                 await mqttClient.PublishAsync(applicationMessage, CancellationToken.None);
@@ -70,7 +77,7 @@ namespace MQTT_test
             using (IMqttClient mqttClient = mqttFactory.CreateMqttClient())
             {
                 MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
-                    .WithTcpServer("localhost")
+                    .WithTcpServer(MQTT_SERVER, MQTT_PORT)
                     .WithProtocolVersion(MqttProtocolVersion.V500)
                     .Build();
 
@@ -78,7 +85,7 @@ namespace MQTT_test
 
                 MqttClientSubscribeOptions mqttSubscribeOptions = mqttFactory
                     .CreateSubscribeOptionsBuilder()
-                    .WithTopicFilter(new MqttTopicFilterBuilder().WithTopic("sample/temperature/#").Build())
+                    .WithTopicFilter(new MqttTopicFilterBuilder().WithTopic(TEST_TOPIC).Build())
                     .Build();
 
                 MqttClientSubscribeResult response = await mqttClient.SubscribeAsync(mqttSubscribeOptions, CancellationToken.None);
