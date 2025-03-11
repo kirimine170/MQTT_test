@@ -19,13 +19,17 @@ namespace MQTT_test
         private const int MQTT_PORT = 1883;
         private const String TEST_TOPIC = "test/topic";
         private const String TEST_PAYLOAD = "Just Testing...";
-        
-        static void Main(string[] args)
+
+        static async Task Main(string[] args)
         {
             Program program = new Program();
-            program.Connect().Wait();
-            program.Subscribe_Topic().Wait();
-            program.Publish_Application_Message().Wait();
+            // program.Connect().Wait();
+            // program.Subscribe_Topic().Wait();
+            // program.Publish_Application_Message().Wait();
+            Task subscriberTask = program.Subscribe_Topic();
+            await Task.Delay(1000);
+            await program.Publish_Application_Message();
+            await subscriberTask;
         }
 
         public async Task Connect()
@@ -64,9 +68,9 @@ namespace MQTT_test
 
                 await mqttClient.PublishAsync(applicationMessage, CancellationToken.None);
 
-                await mqttClient.DisconnectAsync();
-
                 Console.WriteLine("MQTT application message is published.");
+
+                await mqttClient.DisconnectAsync();
             }
         }
 
@@ -74,35 +78,41 @@ namespace MQTT_test
         {
             MqttFactory mqttFactory = new MqttFactory();
 
-            using (IMqttClient mqttClient = mqttFactory.CreateMqttClient())
+            IMqttClient mqttClient = mqttFactory.CreateMqttClient();
+
+            MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
+                .WithTcpServer(MQTT_SERVER, MQTT_PORT)
+                .WithProtocolVersion(MqttProtocolVersion.V500)
+                .Build();
+
+            await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
+
+            mqttClient.ApplicationMessageReceivedAsync += e =>
             {
-                MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
-                    .WithTcpServer(MQTT_SERVER, MQTT_PORT)
-                    .WithProtocolVersion(MqttProtocolVersion.V500)
-                    .Build();
+                String topic = e.ApplicationMessage.Topic;
+                String payload = e.ApplicationMessage.ConvertPayloadToString();
+                Console.WriteLine($"Received message on topic: {topic}");
+                Console.WriteLine($"Payload: {payload}");
 
-                await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
+                return Task.CompletedTask;
+            };
 
-                MqttClientSubscribeOptions mqttSubscribeOptions = mqttFactory
-                    .CreateSubscribeOptionsBuilder()
-                    .WithTopicFilter(new MqttTopicFilterBuilder().WithTopic(TEST_TOPIC).Build())
-                    .Build();
+            MqttClientSubscribeOptions mqttSubscribeOptions = mqttFactory
+                .CreateSubscribeOptionsBuilder()
+                .WithTopicFilter(new MqttTopicFilterBuilder()
+                    .WithTopic(TEST_TOPIC)
+                    .Build())
+                .Build();
 
-                MqttClientSubscribeResult response = await mqttClient.SubscribeAsync(mqttSubscribeOptions, CancellationToken.None);
+            MqttClientSubscribeResult response = await mqttClient.SubscribeAsync(mqttSubscribeOptions, CancellationToken.None);
 
-                Console.WriteLine("MQTT client subscribed to topic.");
+            Console.WriteLine("MQTT client subscribed to topic.");
+            Console.WriteLine("Waiting for messages... Press Enter to exit.");
 
-                foreach (MqttUserProperty mqttUserProperty in response.UserProperties)
-                {
-                    Console.WriteLine(mqttUserProperty.Name + ":" + mqttUserProperty.Value);
-                }
-                
-                foreach (MqttClientSubscribeResultItem item in response.Items)
-                {
-                    Console.WriteLine(item.ResultCode);
-                }
+            Console.ReadLine();
 
-            }
+            await mqttClient.DisconnectAsync();
+
 
         }
 
