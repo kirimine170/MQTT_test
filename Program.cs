@@ -15,10 +15,10 @@ namespace MQTT_test
 {
     internal class Program
     {
-        private const String MQTT_SERVER = "localhost";
+        private const string MQTT_SERVER = "localhost";
         private const int MQTT_PORT = 1883;
-        private const String TEST_TOPIC = "test/topic";
-        private const String TEST_PAYLOAD = "Just Testing...";
+        private const string TEST_TOPIC = "test/topic";
+        private const string TEST_PAYLOAD = "Just Testing...";
 
         static async Task Main(string[] args)
         {
@@ -89,8 +89,8 @@ namespace MQTT_test
 
             mqttClient.ApplicationMessageReceivedAsync += e =>
             {
-                String topic = e.ApplicationMessage.Topic;
-                String payload = e.ApplicationMessage.ConvertPayloadToString();
+                string topic = e.ApplicationMessage.Topic;
+                string payload = e.ApplicationMessage.ConvertPayloadToString();
                 Console.WriteLine($"Received message on topic: {topic}");
                 Console.WriteLine($"Payload: {payload}");
 
@@ -112,7 +112,6 @@ namespace MQTT_test
             Console.ReadLine();
 
             await mqttClient.DisconnectAsync();
-
 
         }
 
