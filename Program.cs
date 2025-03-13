@@ -10,19 +10,43 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Net.NetworkInformation;
 using System.Reflection.Metadata;
+using System.Security.Authentication;
+using Microsoft.Extensions.Configuration;
 
 namespace MQTT_test
 {
     internal class Program
     {
-        private const string MQTT_SERVER = "localhost";
-        private const int MQTT_PORT = 1883;
-        private const string TEST_TOPIC = "test/topic";
-        private const string TEST_PAYLOAD = "Just Testing...";
+        private readonly IConfiguration _configuration;
+        // 共通設定
+        private string MQTT_SERVER => _configuration["Mqtt:Server"];
+        private int MQTT_PORT => int.Parse(_configuration["Mqtt:Port"]);
+        private string TEST_TOPIC => _configuration["Test:Topic"];
+        private string TEST_PAYLOAD => _configuration["Test:Payload"];
+
+        // 認証情報セット A
+        private string MQTT_USERNAME_A => _configuration["Mqtt:A:Username"];
+        private string MQTT_PASSWORD_A => _configuration["Mqtt:A:Password"];
+        private string MQTT_CLIENT_ID_A => _configuration["Mqtt:A:ClientId"];
+
+        // 認証情報セット B
+        private string MQTT_USERNAME_B => _configuration["Mqtt:B:Username"];
+        private string MQTT_PASSWORD_B => _configuration["Mqtt:B:Password"];
+        private string MQTT_CLIENT_ID_B => _configuration["Mqtt:B:ClientId"];
+
+        public Program(IConfiguration configuration)
+        {
+            _configuration = configuration;
+        }
 
         static async Task Main(string[] args)
         {
-            Program program = new Program();
+            IConfigurationBuilder builder = new ConfigurationBuilder()
+                .AddJsonFile("config.json", optional: true)
+                .AddEnvironmentVariables();
+
+            IConfiguration configuration = builder.Build();
+            Program program = new Program(configuration);
             // program.Connect().Wait();
             // program.Subscribe_Topic().Wait();
             // program.Publish_Application_Message().Wait();
@@ -56,7 +80,18 @@ namespace MQTT_test
             {
                 MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
                     .WithTcpServer(MQTT_SERVER, MQTT_PORT)
+                    .WithCredentials(MQTT_USERNAME_A, MQTT_PASSWORD_A)
+                    .WithTlsOptions
+                    (
+                        o =>
+                        {
+                            o.WithCertificateValidationHandler(_ => true);
+                            o.WithSslProtocols(SslProtocols.Tls12);
+                        }
+
+                    )
                     .WithProtocolVersion(MqttProtocolVersion.V500)
+                    .WithClientId(MQTT_CLIENT_ID_A)
                     .Build();
 
                 await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
@@ -82,7 +117,18 @@ namespace MQTT_test
 
             MqttClientOptions mqttClientOptions = new MqttClientOptionsBuilder()
                 .WithTcpServer(MQTT_SERVER, MQTT_PORT)
+                .WithCredentials(MQTT_USERNAME_B, MQTT_PASSWORD_B)
+                .WithTlsOptions
+                (
+                    o =>
+                    {
+                        o.WithCertificateValidationHandler(_ => true);
+                        o.WithSslProtocols(SslProtocols.Tls12);
+                    }
+
+                )
                 .WithProtocolVersion(MqttProtocolVersion.V500)
+                .WithClientId(MQTT_CLIENT_ID_B)
                 .Build();
 
             await mqttClient.ConnectAsync(mqttClientOptions, CancellationToken.None);
@@ -93,6 +139,8 @@ namespace MQTT_test
                 string payload = e.ApplicationMessage.ConvertPayloadToString();
                 Console.WriteLine($"Received message on topic: {topic}");
                 Console.WriteLine($"Payload: {payload}");
+                int id = System.Threading.Thread.CurrentThread.ManagedThreadId;
+                Console.WriteLine("ThreadID : " + id);
 
                 return Task.CompletedTask;
             };
